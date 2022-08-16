@@ -1,14 +1,55 @@
-use super::super::entities::{item, prelude::Item};
-use rocket::{get, serde::json::Json, State};
+use crate::dao;
+use crate::models::item;
+use rocket::{
+    get, http, post,
+    response::status::Custom,
+    serde::json::{json, Json, Value},
+    State,
+};
 use rocket_okapi::openapi;
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::DatabaseConnection;
 
-#[openapi(tag = "stocker-vue")]
+#[openapi(tag = "item")]
 #[get("/items")]
-pub async fn index(db: &State<DatabaseConnection>) -> Json<Vec<item::Model>> {
-    let db = db as &DatabaseConnection;
+pub async fn get_items(
+    db: &State<DatabaseConnection>,
+) -> Result<Json<Vec<item::Model>>, Custom<Value>> {
+    let items = dao::item::get_items(db as &DatabaseConnection).await;
 
-    let names = Item::find().into_model().all(db).await.unwrap();
+    match items {
+        Ok(items) => Ok(Json(items)),
+        Err(_) => Err(Custom(
+            http::Status::InternalServerError,
+            json!({
+              "error": {
+                "code": 500,
+                "reason": "Internal Server Error",
+                "description": "Error occurs while getting items from the database."
+              }
+            }),
+        )),
+    }
+}
 
-    Json(names)
+#[openapi(tag = "item")]
+#[post("/items", data = "<item>")]
+pub async fn create_item(
+    db: &State<DatabaseConnection>,
+    item: Json<item::Model>,
+) -> Result<(), Custom<Value>> {
+    let result = dao::item::insert_item(db as &DatabaseConnection, item.0).await;
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(_) => Err(Custom(
+            http::Status::InternalServerError,
+            json!({
+              "error": {
+                "code": 500,
+                "reason": "Internal Server Error",
+                "description": "Error occurs while inserting new item into the database."
+              }
+            }),
+        )),
+    }
 }

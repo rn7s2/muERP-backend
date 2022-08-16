@@ -2,7 +2,7 @@
 
 use sea_orm::entity::prelude::*;
 
-#[derive(rocket_okapi::JsonSchema, rocket::serde::Serialize)]
+#[derive(rocket_okapi::JsonSchema, rocket::serde::Serialize, rocket::serde::Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "batch")]

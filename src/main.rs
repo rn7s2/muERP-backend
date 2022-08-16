@@ -1,8 +1,9 @@
 mod controllers;
-mod entities;
-mod services;
+mod dao;
+mod models;
 
 use controllers::item;
+use dao::db::setup_db;
 use rocket::{
     catch, catchers,
     serde::json::{json, Value},
@@ -11,13 +12,15 @@ use rocket_okapi::{
     openapi_get_routes,
     swagger_ui::{make_swagger_ui, SwaggerUIConfig},
 };
-use services::db::setup_db;
 
 #[catch(404)]
 fn not_found() -> Value {
     json!({
-        "status": "error",
-        "reason": "Resource was not found."
+      "error": {
+        "code": 404,
+        "reason": "Resource Not Found",
+        "description": "Error finding resource you requested."
+      }
     })
 }
 
@@ -31,7 +34,10 @@ async fn main() {
     let launch_result = rocket::build()
         .manage(db)
         .register("/", catchers![not_found])
-        .mount("/api", openapi_get_routes![item::index])
+        .mount(
+            "/api",
+            openapi_get_routes![item::get_items, item::create_item],
+        )
         .mount(
             "/api/swagger-ui",
             make_swagger_ui(&SwaggerUIConfig {
