@@ -1,7 +1,7 @@
 use crate::dao;
 use crate::models::item;
 use rocket::{
-    get, http, post,
+    delete, get, http, post, put,
     response::status::Custom,
     serde::json::{json, Json, Value},
     State,
@@ -55,7 +55,7 @@ pub async fn create_item(
 }
 
 #[openapi(tag = "item")]
-#[post("/items/<id>", data = "<item>")]
+#[put("/items/<id>", data = "<item>")]
 pub async fn modify_item(
     db: &State<DatabaseConnection>,
     id: u32,
@@ -102,7 +102,7 @@ pub async fn modify_item(
 }
 
 #[openapi(tag = "item")]
-#[post("/items/<id>")]
+#[delete("/items/<id>")]
 pub async fn delete_item(db: &State<DatabaseConnection>, id: u32) -> Result<(), Custom<Value>> {
     let result = dao::item::delete_item(db as &DatabaseConnection, id).await;
 
