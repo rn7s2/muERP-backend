@@ -9,7 +9,7 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: u32,
-    pub datetime: DateTime,
+    pub date: Date,
     pub number: i32,
     pub item_id: u32,
 }

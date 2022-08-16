@@ -1,24 +1,29 @@
-use crate::models::{item, prelude::Item};
-use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait, QuerySelect};
+use crate::models::{batch, item, prelude::*, stock_out};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
+    InsertResult, QueryFilter, QuerySelect, TransactionTrait,
+};
 
 pub async fn get_items(db: &DatabaseConnection) -> Result<Vec<item::Model>, DbErr> {
     Item::find().into_model().all(db).await
 }
 
 pub async fn get_max_id(db: &DatabaseConnection) -> Result<u32, DbErr> {
-    match Item::find().column(item::Column::Id).all(db).await {
-        Ok(ids) => Ok(ids.into_iter().fold(0, |max, x| x.id.max(max)) as u32),
-        Err(err) => Err(err),
-    }
+    Ok(Item::find()
+        .column(item::Column::Id)
+        .all(db)
+        .await?
+        .into_iter()
+        .fold(0, |max, x| x.id.max(max)) as u32)
 }
 
-pub async fn insert_item(db: &DatabaseConnection, item: item::Model) -> Result<(), DbErr> {
-    let next_id = match get_max_id(db as &DatabaseConnection).await {
-        Ok(max_id) => max_id + 1,
-        Err(err) => return Err(err),
-    };
+pub async fn insert_item(
+    db: &DatabaseConnection,
+    item: item::Model,
+) -> Result<InsertResult<item::ActiveModel>, DbErr> {
+    let next_id = get_max_id(db as &DatabaseConnection).await? + 1;
 
-    match Item::insert(item::ActiveModel {
+    Item::insert(item::ActiveModel {
         id: ActiveValue::Set(item.id.max(next_id)),
         name: ActiveValue::Set(item.name.clone()),
         specification: ActiveValue::Set(item.specification.clone()),
@@ -30,13 +35,9 @@ pub async fn insert_item(db: &DatabaseConnection, item: item::Model) -> Result<(
     })
     .exec(db)
     .await
-    {
-        Ok(_) => Ok(()),
-        Err(err) => Err(err),
-    }
 }
 
-pub async fn modify_item(db: &DatabaseConnection, item: item::Model) -> Result<(), DbErr> {
+pub async fn modify_item(db: &DatabaseConnection, item: item::Model) -> Result<item::Model, DbErr> {
     let item = item::ActiveModel {
         id: ActiveValue::Set(item.id),
         name: ActiveValue::Set(item.name.clone()),
@@ -48,12 +49,21 @@ pub async fn modify_item(db: &DatabaseConnection, item: item::Model) -> Result<(
         expiration: ActiveValue::Set(item.expiration),
     };
 
-    match item.update(db).await {
-        Ok(_) => Ok(()),
-        Err(err) => Err(err),
-    }
+    item.update(db).await
 }
 
 pub async fn delete_item(db: &DatabaseConnection, id: u32) -> Result<(), DbErr> {
-    todo!("{}", "Deleting needs batches and stock_out to be ready.")
+    let transaction = db.begin().await?;
+
+    Batch::delete_many()
+        .filter(batch::Column::ItemId.eq(id))
+        .exec(&transaction)
+        .await?;
+    StockOut::delete_many()
+        .filter(stock_out::Column::ItemId.eq(id))
+        .exec(&transaction)
+        .await?;
+    Item::delete_by_id(id).exec(&transaction).await?;
+
+    transaction.commit().await
 }

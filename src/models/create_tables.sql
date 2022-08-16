@@ -30,7 +30,7 @@ ENGINE=InnoDB
 
 CREATE TABLE `stock_out` (
 	`id` INT(10) UNSIGNED NOT NULL,
-	`datetime` DATETIME NOT NULL,
+	`date` DATE NOT NULL,
 	`number` INT(11) NOT NULL,
 	`item_id` INT(10) UNSIGNED NOT NULL,
 	PRIMARY KEY (`id`) USING BTREE,

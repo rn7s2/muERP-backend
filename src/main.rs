@@ -2,7 +2,7 @@ mod controllers;
 mod dao;
 mod models;
 
-use controllers::item;
+use controllers::{item, stock_out};
 use dao::db::setup_db;
 use rocket::{
     catch, catchers,
@@ -40,7 +40,10 @@ async fn main() {
                 item::get_items,
                 item::create_item,
                 item::modify_item,
-                item::delete_item
+                item::delete_item,
+                stock_out::get_stock_out,
+                stock_out::insert_or_update_stock_out,
+                stock_out::get_stock_out_by_item_id
             ],
         )
         .mount(
