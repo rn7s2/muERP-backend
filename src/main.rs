@@ -36,7 +36,12 @@ async fn main() {
         .register("/", catchers![not_found])
         .mount(
             "/api",
-            openapi_get_routes![item::get_items, item::create_item],
+            openapi_get_routes![
+                item::get_items,
+                item::create_item,
+                item::modify_item,
+                item::delete_item
+            ],
         )
         .mount(
             "/api/swagger-ui",
