@@ -1,7 +1,11 @@
 mod entities;
 
-use entities::prelude::*;
-use rocket::{get, serde::json::Json, State};
+use entities::{item, prelude::*};
+use rocket::{
+    catch, catchers, get,
+    serde::json::{json, Json, Value},
+    State,
+};
 use rocket_okapi::{
     openapi, openapi_get_routes,
     swagger_ui::{make_swagger_ui, SwaggerUIConfig},
@@ -10,20 +14,22 @@ use sea_orm::{
     ConnectionTrait, Database, DatabaseConnection, DbBackend, DbErr, EntityTrait, Statement,
 };
 
-#[openapi(tag = "main")]
-#[get("/")]
-async fn index(db: &State<DatabaseConnection>) -> Json<Vec<String>> {
+#[openapi(tag = "stocker-vue")]
+#[get("/items")]
+async fn index(db: &State<DatabaseConnection>) -> Json<Vec<item::Model>> {
     let db = db as &DatabaseConnection;
 
-    let names = Item::find()
-        .all(db)
-        .await
-        .unwrap()
-        .into_iter()
-        .map(|item| item.name)
-        .collect::<Vec<String>>();
+    let names = Item::find().into_model().all(db).await.unwrap();
 
     Json(names)
+}
+
+#[catch(404)]
+fn not_found() -> Value {
+    json!({
+        "status": "error",
+        "reason": "Resource was not found."
+    })
 }
 
 async fn setup_db() -> Result<DatabaseConnection, DbErr> {
@@ -65,9 +71,10 @@ async fn main() {
 
     let launch_result = rocket::build()
         .manage(db)
-        .mount("/", openapi_get_routes![index])
+        .register("/api", catchers![not_found])
+        .mount("/api", openapi_get_routes![index])
         .mount(
-            "/swagger-ui/",
+            "/api/swagger-ui",
             make_swagger_ui(&SwaggerUIConfig {
                 url: "../openapi.json".to_owned(),
                 ..Default::default()

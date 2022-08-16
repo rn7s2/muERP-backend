@@ -2,6 +2,8 @@
 
 use sea_orm::entity::prelude::*;
 
+#[derive(rocket_okapi::JsonSchema, rocket::serde::Serialize)]
+#[serde(crate = "rocket::serde")]
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "item")]
 pub struct Model {
