@@ -10,6 +10,30 @@ use rocket_okapi::openapi;
 use sea_orm::DatabaseConnection;
 
 #[openapi(tag = "batch")]
+#[get("/stock-in-and-items?<from>&<to>")]
+pub async fn get_stock_in_and_items(
+    db: &State<DatabaseConnection>,
+    from: String,
+    to: String,
+) -> Result<Json<Vec<dao::batch::StockInAndItem>>, Custom<Value>> {
+    let result = dao::batch::get_stock_in_and_items(db, from, to).await;
+
+    match result {
+        Ok(stock_in_and_items) => Ok(Json(stock_in_and_items)),
+        Err(_) => Err(Custom(
+            http::Status::InternalServerError,
+            json!({
+              "error": {
+                "code": 500,
+                "reason": "Internal Server Error",
+                "description": "Error occurs while getting batches from the database."
+              }
+            }),
+        )),
+    }
+}
+
+#[openapi(tag = "batch")]
 #[get("/batches-and-items")]
 pub async fn get_batches_and_items(
     db: &State<DatabaseConnection>,

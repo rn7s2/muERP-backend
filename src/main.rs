@@ -44,6 +44,7 @@ async fn main() {
                 stock_out::get_stock_out_and_items,
                 stock_out::insert_or_update_stock_out,
                 stock_out::get_stock_out_by_item_id,
+                batch::get_stock_in_and_items,
                 batch::get_batches_and_items,
                 batch::create_batch,
                 batch::disable_batch

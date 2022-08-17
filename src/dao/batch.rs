@@ -7,6 +7,33 @@ use sea_orm::{
 #[derive(rocket_okapi::JsonSchema, rocket::serde::Serialize, rocket::serde::Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[derive(Debug, FromQueryResult)]
+pub struct StockInAndItem {
+    pub number: i32,
+    pub item_id: u32,
+    pub name: String,
+    pub specification: Option<String>,
+    pub unit: Option<String>,
+    pub manufacturer: String,
+    pub price: f32,
+}
+
+pub async fn get_stock_in_and_items(
+    db: &DatabaseConnection,
+    from_date: String,
+    to_date: String,
+) -> Result<Vec<StockInAndItem>, DbErr> {
+    Item::find()
+        .from_raw_sql(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT CAST(SUM(`batch`.`number`) as INTEGER) AS `number`, `batch`.`item_id`, `item`.`name`,`item`.`specification`,`item`.`unit`,`item`.`manufacturer`,`item`.`price` FROM `item` INNER JOIN `batch` ON `batch`.`item_id`=`item`.`id` WHERE `batch`.`date`>= \"{}\" AND `batch`.`date`<= \"{}\" GROUP BY `batch`.`item_id` ORDER BY `item`.`price` DESC", from_date, to_date),
+        )).into_model::<StockInAndItem>()
+        .all(db)
+        .await
+}
+
+#[derive(rocket_okapi::JsonSchema, rocket::serde::Serialize, rocket::serde::Deserialize)]
+#[serde(crate = "rocket::serde")]
+#[derive(Debug, FromQueryResult)]
 pub struct BatchAndItem {
     pub id: u32,
     pub date: chrono::NaiveDate,
