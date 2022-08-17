@@ -36,11 +36,11 @@ pub async fn get_items(
 pub async fn create_item(
     db: &State<DatabaseConnection>,
     item: Json<item::Model>,
-) -> Result<(), Custom<Value>> {
+) -> Result<Json<u32>, Custom<Value>> {
     let result = dao::item::insert_item(db as &DatabaseConnection, item.0).await;
 
     match result {
-        Ok(_) => Ok(()),
+        Ok(res) => Ok(Json(res.last_insert_id)),
         Err(_) => Err(Custom(
             http::Status::InternalServerError,
             json!({
