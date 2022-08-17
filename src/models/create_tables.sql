@@ -19,6 +19,7 @@ CREATE TABLE `batch` (
 	`number` INT(11) NOT NULL,
 	`expiration` DATE NOT NULL,
 	`vendor` TEXT NULL DEFAULT NULL COLLATE 'utf8mb3_general_ci',
+	`disabled` TINYINT(3) UNSIGNED NOT NULL DEFAULT '0',
 	`item_id` INT(10) UNSIGNED NOT NULL,
 	PRIMARY KEY (`id`) USING BTREE,
 	INDEX `fk_batch_item` (`item_id`) USING BTREE,
