@@ -2199,6 +2199,7 @@ dependencies = [
 name = "stocker-vue-backend"
 version = "0.0.1"
 dependencies = [
+ "chrono",
  "rocket",
  "rocket_okapi",
  "schemars",

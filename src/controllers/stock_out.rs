@@ -9,7 +9,7 @@ use rocket::{
 use rocket_okapi::openapi;
 use sea_orm::DatabaseConnection;
 
-#[openapi(tag = "stock_out")]
+#[openapi(tag = "stock-out")]
 #[get("/stock-out")]
 pub async fn get_stock_out(
     db: &State<DatabaseConnection>,
@@ -31,7 +31,7 @@ pub async fn get_stock_out(
     }
 }
 
-#[openapi(tag = "stock_out")]
+#[openapi(tag = "stock-out")]
 #[post("/stock-out", data = "<stock_out>")]
 pub async fn insert_or_update_stock_out(
     db: &State<DatabaseConnection>,
@@ -54,7 +54,7 @@ pub async fn insert_or_update_stock_out(
     }
 }
 
-#[openapi(tag = "stock_out")]
+#[openapi(tag = "stock-out")]
 #[get("/stock-out/<id>")]
 pub async fn get_stock_out_by_item_id(
     db: &State<DatabaseConnection>,

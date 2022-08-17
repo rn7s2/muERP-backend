@@ -6,6 +6,7 @@ use sea_orm::entity::prelude::*;
 #[serde(crate = "rocket::serde")]
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "batch")]
+#[schemars(rename = "Batch")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: u32,
@@ -14,6 +15,7 @@ pub struct Model {
     pub expiration: Date,
     #[sea_orm(column_type = "Text", nullable)]
     pub vendor: Option<String>,
+    pub disabled: u8,
     pub item_id: u32,
 }
 

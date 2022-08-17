@@ -2,7 +2,7 @@ mod controllers;
 mod dao;
 mod models;
 
-use controllers::{item, stock_out};
+use controllers::{batch, item, stock_out};
 use dao::db::setup_db;
 use rocket::{
     catch, catchers,
@@ -43,7 +43,10 @@ async fn main() {
                 item::delete_item,
                 stock_out::get_stock_out,
                 stock_out::insert_or_update_stock_out,
-                stock_out::get_stock_out_by_item_id
+                stock_out::get_stock_out_by_item_id,
+                batch::get_batches_and_items,
+                batch::create_batch,
+                batch::disable_batch
             ],
         )
         .mount(

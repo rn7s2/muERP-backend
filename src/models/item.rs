@@ -6,6 +6,7 @@ use sea_orm::entity::prelude::*;
 #[serde(crate = "rocket::serde")]
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "item")]
+#[schemars(rename = "Item")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: u32,
