@@ -27,7 +27,7 @@ pub async fn get_batches_and_items(db: &DatabaseConnection) -> Result<Vec<BatchA
     Batch::find()
         .from_raw_sql(Statement::from_string(
             DbBackend::MySql,
-            r#"SELECT `batch`.*, `item`.name,`item`.specification,`item`.unit,`item`.manufacturer,`item`.price FROM `item` INNER JOIN `batch` ON `batch`.`item_id`=`item`.`id`"#
+            r#"SELECT `batch`.*, `item`.`name`,`item`.`specification`,`item`.`unit`,`item`.`manufacturer`,`item`.`price` FROM `item` INNER JOIN `batch` ON `batch`.`item_id`=`item`.`id` ORDER BY `batch`.`date` DESC"#
                 .to_string(),
         )).into_model::<BatchAndItem>()
         .all(db)
