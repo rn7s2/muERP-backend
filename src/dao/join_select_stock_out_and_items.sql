@@ -1,0 +1,1 @@
+SELECT `stock_out`.*, `item`.`name`,`item`.`specification`,`item`.`unit`,`item`.`manufacturer`,`item`.`price` FROM `item` INNER JOIN `stock_out` ON `stock_out`.`item_id`=`item`.`id` ORDER BY `stock_out`.`date` DESC, `stock_out`.`id` DESC

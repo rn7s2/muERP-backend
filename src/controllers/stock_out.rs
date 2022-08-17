@@ -10,11 +10,11 @@ use rocket_okapi::openapi;
 use sea_orm::DatabaseConnection;
 
 #[openapi(tag = "stock-out")]
-#[get("/stock-out")]
-pub async fn get_stock_out(
+#[get("/stock-out-and-items")]
+pub async fn get_stock_out_and_items(
     db: &State<DatabaseConnection>,
-) -> Result<Json<Vec<stock_out::Model>>, Custom<Value>> {
-    let stock_outs = dao::stock_out::get_stock_out(db as &DatabaseConnection).await;
+) -> Result<Json<Vec<dao::stock_out::StockOutAndItem>>, Custom<Value>> {
+    let stock_outs = dao::stock_out::get_stock_out_and_items(db as &DatabaseConnection).await;
 
     match stock_outs {
         Ok(stock_outs) => Ok(Json(stock_outs)),

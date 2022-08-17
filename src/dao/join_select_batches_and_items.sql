@@ -1,1 +1,1 @@
-SELECT `batch`.*, `item`.`name`,`item`.`specification`,`item`.`unit`,`item`.`manufacturer`,`item`.`price` FROM `item` INNER JOIN `batch` ON `batch`.`item_id`=`item`.`id` ORDER BY `batch`.`date` DESC
+SELECT `batch`.*, `item`.`name`,`item`.`specification`,`item`.`unit`,`item`.`manufacturer`,`item`.`price` FROM `item` INNER JOIN `batch` ON `batch`.`item_id`=`item`.`id` ORDER BY `batch`.`date` DESC, `batch`.`id` DESC

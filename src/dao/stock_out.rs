@@ -1,11 +1,37 @@
 use crate::models::{item, prelude::*, stock_out};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr,
-    EntityTrait, QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend,
+    DbErr, EntityTrait, FromQueryResult, QueryFilter, QueryOrder, QuerySelect, Statement,
+    TransactionTrait,
 };
 
-pub async fn get_stock_out(db: &DatabaseConnection) -> Result<Vec<stock_out::Model>, DbErr> {
-    StockOut::find().into_model().all(db).await
+#[derive(rocket_okapi::JsonSchema, rocket::serde::Serialize, rocket::serde::Deserialize)]
+#[serde(crate = "rocket::serde")]
+#[derive(Debug, FromQueryResult)]
+pub struct StockOutAndItem {
+    pub id: u32,
+    pub date: chrono::NaiveDate,
+    pub number: i32,
+    pub item_id: u32,
+
+    pub name: String,
+    pub specification: Option<String>,
+    pub unit: Option<String>,
+    pub manufacturer: String,
+    pub price: f32,
+}
+
+pub async fn get_stock_out_and_items(
+    db: &DatabaseConnection,
+) -> Result<Vec<StockOutAndItem>, DbErr> {
+    StockOut::find()
+        .from_raw_sql(Statement::from_string(
+            DbBackend::MySql,
+            r#"SELECT `stock_out`.*, `item`.`name`,`item`.`specification`,`item`.`unit`,`item`.`manufacturer`,`item`.`price` FROM `item` INNER JOIN `stock_out` ON `stock_out`.`item_id`=`item`.`id` ORDER BY `stock_out`.`date` DESC, `stock_out`.`id` DESC"#
+                .to_string(),
+        )).into_model::<StockOutAndItem>()
+        .all(db)
+        .await
 }
 
 pub async fn get_stock_out_by_item_id<T: ConnectionTrait>(
