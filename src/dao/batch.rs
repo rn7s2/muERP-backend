@@ -1,7 +1,7 @@
-use crate::models::{batch, prelude::*};
+use crate::models::{batch, item, prelude::*};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, DatabaseConnection, DbBackend, DbErr, EntityTrait,
-    FromQueryResult, InsertResult, QuerySelect, Statement,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend,
+    DbErr, EntityTrait, FromQueryResult, QueryFilter, QuerySelect, Statement, TransactionTrait,
 };
 
 #[derive(rocket_okapi::JsonSchema, rocket::serde::Serialize, rocket::serde::Deserialize)]
@@ -27,14 +27,14 @@ pub async fn get_batches_and_items(db: &DatabaseConnection) -> Result<Vec<BatchA
     Batch::find()
         .from_raw_sql(Statement::from_string(
             DbBackend::MySql,
-            r#"SELECT `batch`.*, `item`.`name`,`item`.`specification`,`item`.`unit`,`item`.`manufacturer`,`item`.`price` FROM `item` INNER JOIN `batch` ON `batch`.`item_id`=`item`.`id` ORDER BY `batch`.`date` DESC"#
+            r#"SELECT `batch`.*, `item`.`name`,`item`.`specification`,`item`.`unit`,`item`.`manufacturer`,`item`.`price` FROM `item` INNER JOIN `batch` ON `batch`.`item_id`=`item`.`id` ORDER BY `batch`.`date` DESC, `batch`.`id` DESC"#
                 .to_string(),
         )).into_model::<BatchAndItem>()
         .all(db)
         .await
 }
 
-pub async fn get_max_id(db: &DatabaseConnection) -> Result<u32, DbErr> {
+pub async fn get_max_id<T: ConnectionTrait>(db: &T) -> Result<u32, DbErr> {
     Ok(Batch::find()
         .column(batch::Column::Id)
         .all(db)
@@ -43,11 +43,10 @@ pub async fn get_max_id(db: &DatabaseConnection) -> Result<u32, DbErr> {
         .fold(0, |max, x| x.id.max(max)) as u32)
 }
 
-pub async fn create_batch(
-    db: &DatabaseConnection,
-    batch: batch::Model,
-) -> Result<InsertResult<batch::ActiveModel>, DbErr> {
-    let next_id = get_max_id(db as &DatabaseConnection).await? + 1;
+pub async fn create_batch(db: &DatabaseConnection, batch: batch::Model) -> Result<(), DbErr> {
+    let transaction = db.begin().await?;
+
+    let next_id = get_max_id(&transaction).await? + 1;
 
     Batch::insert(batch::ActiveModel {
         id: ActiveValue::Set(batch.id.max(next_id)),
@@ -58,13 +57,33 @@ pub async fn create_batch(
         disabled: ActiveValue::Set(batch.disabled),
         item_id: ActiveValue::Set(batch.item_id),
     })
-    .exec(db)
-    .await
+    .exec(&transaction)
+    .await?;
+
+    let item = match Item::find_by_id(batch.item_id).one(&transaction).await? {
+        Some(item) => item,
+        None => return Err(DbErr::RecordNotFound(String::from("Item not found."))),
+    };
+
+    let active_model = item::ActiveModel {
+        id: ActiveValue::Unchanged(item.id),
+        name: ActiveValue::Unchanged(item.name),
+        specification: ActiveValue::Unchanged(item.specification),
+        unit: ActiveValue::Unchanged(item.unit),
+        manufacturer: ActiveValue::Unchanged(item.manufacturer),
+        number: ActiveValue::Set(item.number + batch.number),
+        price: ActiveValue::Unchanged(item.price),
+        expiration: ActiveValue::Set(item.expiration.min(batch.expiration)),
+    };
+    active_model.update(&transaction).await?;
+
+    transaction.commit().await
 }
 
 pub async fn disable_batch(db: &DatabaseConnection, id: u32) -> Result<(), DbErr> {
-    let batch = Batch::find_by_id(id).one(db).await?;
+    let transaction = db.begin().await?;
 
+    let batch = Batch::find_by_id(id).one(&transaction).await?;
     let batch = match batch {
         Some(batch) => batch,
         None => return Err(DbErr::RecordNotFound(String::from("Batch not found!"))),
@@ -79,9 +98,37 @@ pub async fn disable_batch(db: &DatabaseConnection, id: u32) -> Result<(), DbErr
         disabled: ActiveValue::Set(1),
         item_id: ActiveValue::Unchanged(batch.item_id),
     };
+    active_model.update(&transaction).await?;
 
-    match active_model.update(db).await {
-        Ok(_) => Ok(()),
-        Err(err) => Err(err),
-    }
+    let min_expiration = Batch::find()
+        .filter(batch::Column::ItemId.eq(batch.item_id))
+        .filter(batch::Column::Disabled.ne(1))
+        .all(&transaction)
+        .await?
+        .into_iter()
+        .fold(chrono::NaiveDate::from_ymd(2099, 12, 31), |min, item| {
+            if item.expiration < min {
+                item.expiration
+            } else {
+                min
+            }
+        });
+
+    let item = match Item::find_by_id(batch.item_id).one(&transaction).await? {
+        Some(item) => item,
+        None => return Err(DbErr::RecordNotFound(String::from("Item not found."))),
+    };
+    let active_model = item::ActiveModel {
+        id: ActiveValue::Unchanged(item.id),
+        name: ActiveValue::Unchanged(item.name),
+        specification: ActiveValue::Unchanged(item.specification),
+        unit: ActiveValue::Unchanged(item.unit),
+        manufacturer: ActiveValue::Unchanged(item.manufacturer),
+        number: ActiveValue::Unchanged(item.number),
+        price: ActiveValue::Unchanged(item.price),
+        expiration: ActiveValue::Set(min_expiration),
+    };
+    active_model.update(&transaction).await?;
+
+    transaction.commit().await
 }
