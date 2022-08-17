@@ -9,11 +9,8 @@ use sea_orm::{
 #[serde(crate = "rocket::serde")]
 #[derive(Debug, FromQueryResult)]
 pub struct StockOutAndItem {
-    pub id: u32,
-    pub date: chrono::NaiveDate,
     pub number: i32,
     pub item_id: u32,
-
     pub name: String,
     pub specification: Option<String>,
     pub unit: Option<String>,
@@ -23,12 +20,13 @@ pub struct StockOutAndItem {
 
 pub async fn get_stock_out_and_items(
     db: &DatabaseConnection,
+    from_date: String,
+    to_date: String,
 ) -> Result<Vec<StockOutAndItem>, DbErr> {
-    StockOut::find()
+    Item::find()
         .from_raw_sql(Statement::from_string(
             DbBackend::MySql,
-            r#"SELECT `stock_out`.*, `item`.`name`,`item`.`specification`,`item`.`unit`,`item`.`manufacturer`,`item`.`price` FROM `item` INNER JOIN `stock_out` ON `stock_out`.`item_id`=`item`.`id` ORDER BY `stock_out`.`date` DESC, `stock_out`.`id` DESC"#
-                .to_string(),
+            format!("SELECT CAST(SUM(`stock_out`.`number`) as INTEGER) AS `number`, `stock_out`.`item_id`, `item`.`name`,`item`.`specification`,`item`.`unit`,`item`.`manufacturer`,`item`.`price` FROM `item` INNER JOIN `stock_out` ON `stock_out`.`item_id`=`item`.`id` WHERE `stock_out`.`date`>= \"{}\" AND `stock_out`.`date`<= \"{}\" GROUP BY `stock_out`.`item_id` ORDER BY `item`.`price` DESC", from_date, to_date),
         )).into_model::<StockOutAndItem>()
         .all(db)
         .await
