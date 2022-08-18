@@ -5,7 +5,7 @@ mod models;
 use controllers::{batch, item, stock_out};
 use dao::db::setup_db;
 use rocket::{
-    catch, catchers,
+    catch, catchers, routes,
     serde::json::{json, Value},
 };
 use rocket_okapi::{
@@ -34,6 +34,7 @@ async fn main() {
     let launch_result = rocket::build()
         .manage(db)
         .register("/", catchers![not_found])
+        .mount("/api", routes![batch::create_batch_from_xlsx])
         .mount(
             "/api",
             openapi_get_routes![

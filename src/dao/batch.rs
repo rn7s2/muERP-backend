@@ -1,7 +1,8 @@
 use crate::models::{batch, item, prelude::*};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend,
-    DbErr, EntityTrait, FromQueryResult, QueryFilter, QuerySelect, Statement, TransactionTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection,
+    DatabaseTransaction, DbBackend, DbErr, EntityTrait, FromQueryResult, QueryFilter, QuerySelect,
+    Statement, TransactionTrait,
 };
 
 #[derive(rocket_okapi::JsonSchema, rocket::serde::Serialize, rocket::serde::Deserialize)]
@@ -68,6 +69,44 @@ pub async fn get_max_id<T: ConnectionTrait>(db: &T) -> Result<u32, DbErr> {
         .await?
         .into_iter()
         .fold(0, |max, x| x.id.max(max)) as u32)
+}
+
+pub async fn create_batch_transaction(
+    transaction: &DatabaseTransaction,
+    batch: batch::Model,
+) -> Result<(), DbErr> {
+    let next_id = get_max_id(transaction).await? + 1;
+
+    Batch::insert(batch::ActiveModel {
+        id: ActiveValue::Set(batch.id.max(next_id)),
+        date: ActiveValue::Set(batch.date),
+        number: ActiveValue::Set(batch.number),
+        expiration: ActiveValue::Set(batch.expiration),
+        vendor: ActiveValue::Set(batch.vendor),
+        disabled: ActiveValue::Set(batch.disabled),
+        item_id: ActiveValue::Set(batch.item_id),
+    })
+    .exec(transaction)
+    .await?;
+
+    let item = match Item::find_by_id(batch.item_id).one(transaction).await? {
+        Some(item) => item,
+        None => return Err(DbErr::RecordNotFound(String::from("Item not found."))),
+    };
+
+    let active_model = item::ActiveModel {
+        id: ActiveValue::Unchanged(item.id),
+        name: ActiveValue::Unchanged(item.name),
+        specification: ActiveValue::Unchanged(item.specification),
+        unit: ActiveValue::Unchanged(item.unit),
+        manufacturer: ActiveValue::Unchanged(item.manufacturer),
+        number: ActiveValue::Set(item.number + batch.number),
+        price: ActiveValue::Unchanged(item.price),
+        expiration: ActiveValue::Set(item.expiration.min(batch.expiration)),
+    };
+    active_model.update(transaction).await?;
+
+    Ok(())
 }
 
 pub async fn create_batch(db: &DatabaseConnection, batch: batch::Model) -> Result<(), DbErr> {

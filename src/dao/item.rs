@@ -1,20 +1,41 @@
 use crate::models::{batch, item, prelude::*, stock_out};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
-    InsertResult, QueryFilter, QuerySelect, TransactionTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection,
+    DatabaseTransaction, DbErr, EntityTrait, InsertResult, QueryFilter, QuerySelect,
+    TransactionTrait,
 };
 
-pub async fn get_items(db: &DatabaseConnection) -> Result<Vec<item::Model>, DbErr> {
+pub async fn get_items<T: ConnectionTrait>(db: &T) -> Result<Vec<item::Model>, DbErr> {
     Item::find().into_model().all(db).await
 }
 
-pub async fn get_max_id(db: &DatabaseConnection) -> Result<u32, DbErr> {
+pub async fn get_max_id<T: ConnectionTrait>(db: &T) -> Result<u32, DbErr> {
     Ok(Item::find()
         .column(item::Column::Id)
         .all(db)
         .await?
         .into_iter()
         .fold(0, |max, x| x.id.max(max)) as u32)
+}
+
+pub async fn insert_item_transaction(
+    transaction: &DatabaseTransaction,
+    item: item::Model,
+) -> Result<InsertResult<item::ActiveModel>, DbErr> {
+    let next_id = get_max_id(transaction).await? + 1;
+
+    Item::insert(item::ActiveModel {
+        id: ActiveValue::Set(item.id.max(next_id)),
+        name: ActiveValue::Set(item.name.clone()),
+        specification: ActiveValue::Set(item.specification.clone()),
+        unit: ActiveValue::Set(item.unit.clone()),
+        manufacturer: ActiveValue::Set(item.manufacturer.clone()),
+        number: ActiveValue::Set(item.number),
+        price: ActiveValue::Set(item.price),
+        expiration: ActiveValue::Set(item.expiration),
+    })
+    .exec(transaction)
+    .await
 }
 
 pub async fn insert_item(
