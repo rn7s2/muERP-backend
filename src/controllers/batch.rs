@@ -137,8 +137,8 @@ pub async fn create_batch_from_xlsx(
         }
     };
 
-    let delete_and_error = || -> Result<(), Custom<Value>> {
-        match std::fs::remove_file(path) {
+    async fn delete_and_error(path: &std::path::Path) -> Result<(), Custom<Value>> {
+        match rocket::tokio::fs::remove_file(path).await {
             Ok(_) => (),
             Err(_) => {
                 return Err(Custom(
@@ -163,20 +163,20 @@ pub async fn create_batch_from_xlsx(
               }
             }),
         ));
-    };
+    }
 
     let sheet = match book.get_sheet(&0) {
         Ok(result) => result,
-        Err(_) => return delete_and_error(),
+        Err(_) => return delete_and_error(&path).await,
     };
 
     let transaction = match db.begin().await {
         Ok(transaction) => transaction,
-        Err(_) => return delete_and_error(),
+        Err(_) => return delete_and_error(&path).await,
     };
     let items = match dao::item::get_items(&transaction).await {
         Ok(items) => items,
-        Err(_) => return delete_and_error(),
+        Err(_) => return delete_and_error(&path).await,
     };
 
     let get_cell_value_string = |col, row| {
@@ -190,7 +190,7 @@ pub async fn create_batch_from_xlsx(
         let date = chrono::NaiveDate::from_ymd(1900, 1, 1).add(chrono::Duration::days(
             match get_cell_value_string(1, i).parse::<i64>() {
                 Ok(val) => val,
-                Err(_) => return delete_and_error(),
+                Err(_) => return delete_and_error(&path).await,
             } - 2,
         ));
         let name = get_cell_value_string(2, i);
@@ -199,16 +199,16 @@ pub async fn create_batch_from_xlsx(
         let manufacturer = get_cell_value_string(5, i);
         let number = match get_cell_value_string(6, i).parse::<i32>() {
             Ok(number) => number,
-            Err(_) => return delete_and_error(),
+            Err(_) => return delete_and_error(&path).await,
         };
         let price = match get_cell_value_string(7, i).parse::<f32>() {
             Ok(val) => val,
-            Err(_) => return delete_and_error(),
+            Err(_) => return delete_and_error(&path).await,
         };
         let expiration = chrono::NaiveDate::from_ymd(1900, 1, 1).add(chrono::Duration::days(
             match get_cell_value_string(8, i).parse::<i64>() {
                 Ok(val) => val,
-                Err(_) => return delete_and_error(),
+                Err(_) => return delete_and_error(&path).await,
             } - 2,
         ));
         let vendor = get_cell_value_string(9, i);
@@ -234,7 +234,7 @@ pub async fn create_batch_from_xlsx(
             .await
             {
                 Ok(_) => (),
-                Err(_) => return delete_and_error(),
+                Err(_) => return delete_and_error(&path).await,
             };
         } else {
             let item_id = match dao::item::insert_item_transaction(
@@ -253,7 +253,7 @@ pub async fn create_batch_from_xlsx(
             .await
             {
                 Ok(val) => val,
-                Err(_) => return delete_and_error(),
+                Err(_) => return delete_and_error(&path).await,
             }
             .last_insert_id;
 
@@ -272,14 +272,14 @@ pub async fn create_batch_from_xlsx(
             .await
             {
                 Ok(_) => (),
-                Err(_) => return delete_and_error(),
+                Err(_) => return delete_and_error(&path).await,
             };
         }
     }
 
     match transaction.commit().await {
         Ok(_) => (),
-        Err(_) => return delete_and_error(),
+        Err(_) => return delete_and_error(&path).await,
     }
 
     match rocket::tokio::fs::remove_file(path).await {
